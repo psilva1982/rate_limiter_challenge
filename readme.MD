@@ -50,10 +50,10 @@ MYSQL_PORT=3306
 Faça o clone do repositório: 
 
 ```
-git clone XXXXXXX
+git clone https://github.com/psilva1982/rate_limiter_challenge
 ```
 
-Inicie o projeto utilizando docker compose
+Inicie o projeto utilizando docker compose.
 
 ```
 docker compose -f "deployments/docker-compose.yml" up
