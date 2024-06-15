@@ -1,0 +1,10 @@
+# Get / without token
+GET http://localhost:8080 HTTP/1.1
+Content-Type: application/json
+
+###
+
+# Get / with token
+GET http://localhost:8080 HTTP/1.1
+Content-Type: application/json
+API_KEY: hJHYIULyJllyITCWtHMiByWF48yph7Dg

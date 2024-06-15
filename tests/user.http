@@ -1,0 +1,17 @@
+// Create user
+POST http://localhost:8080/signup 
+
+{
+    "email": "email@gmail.com",
+    "password": "1234"
+}
+
+###
+
+// Get Token
+POST http://localhost:8080/get-api-key
+
+{
+    "email": "email@gmail.com",
+    "password": "1234"
+}

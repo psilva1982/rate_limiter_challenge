@@ -1,0 +1,107 @@
+basePath: /
+definitions:
+  dto.UserInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: severos1982@gmail.com
+    name: Rate Limiter Challange
+    url: github.com/psilva1982/rate_limiter_challenge/
+  description: This is a sample rate limiter server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Rate Limiter API
+  version: "1.0"
+paths:
+  /:
+    get:
+      description: Access protected route with rate limiting
+      parameters:
+      - description: API Key
+        in: header
+        name: API_KEY
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Request allowed
+          schema:
+            type: string
+        "429":
+          description: you have reached the maximum number of requests or actions
+            allowed within a certain time frame
+          schema:
+            type: string
+      summary: Rate limited route
+      tags:
+      - root
+  /get-api-key:
+    post:
+      consumes:
+      - application/json
+      description: Get API key for a user
+      parameters:
+      - description: User input
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "401":
+          description: Invalid credentials
+          schema:
+            type: string
+      summary: Get API key
+      tags:
+      - users
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with email and password
+      parameters:
+      - description: User input
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "500":
+          description: Error creating user
+          schema:
+            type: string
+      summary: Create a new user
+      tags:
+      - users
+swagger: "2.0"

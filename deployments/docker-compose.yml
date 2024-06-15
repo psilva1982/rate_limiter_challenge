@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  
+  redis_ratelimiter:
+    container_name: redis_ratelimiter
+    image: "redis:7.4-rc1"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+  
+  mysql_ratelimiter:
+    container_name: mysql_ratelimiter
+    image: "mysql:8"
+    env_file:
+      - ../.env
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 55
+
+  app:
+    container_name: app_ratelimiter
+    build:
+      context: ../.
+      dockerfile: deployments/Dockerfile
+    depends_on:
+      redis_ratelimiter: 
+        condition: service_started
+      mysql_ratelimiter:
+        condition: service_healthy
+  
+    ports:
+      - "8080:8080"
+    restart: on-failure
+
+volumes:
+  redis_data:
+  mysql_data:
