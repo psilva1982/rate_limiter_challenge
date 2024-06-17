@@ -11,7 +11,6 @@ import (
 	_ "github.com/psilva1982/rate_limiter_challenge/docs"
 	"github.com/psilva1982/rate_limiter_challenge/internal/infra/database"
 	"github.com/psilva1982/rate_limiter_challenge/internal/infra/redis"
-	"github.com/psilva1982/rate_limiter_challenge/internal/limiter"
 	"github.com/psilva1982/rate_limiter_challenge/internal/services"
 	"github.com/psilva1982/rate_limiter_challenge/internal/webserver/handlers"
 	customMiddleware "github.com/psilva1982/rate_limiter_challenge/internal/webserver/middleware"
@@ -34,16 +33,17 @@ import (
 func main() {
 	godotenv.Load("/.env")
 
-	// Startup Redis
-	client := redis.InitRedis()
-	ipRate, tokenRate, blockDuration := redis.GetLimiterConfig()
-	rateLimiter := limiter.NewRateLimiter(client, ipRate, tokenRate, blockDuration)
-
 	// Startup MySQL
 	db, err := database.InitDB()
 	if err != nil {
 		panic("failed to connect database")
 	}
+
+	// Startup Redis
+	clientRedis := redis.InitRedis()
+	rateLimiter := redis.NewRateLimiter(clientRedis)
+
+	//
 	userService := services.NewUserService(db)
 	userHandler := handlers.NewUserHandler(userService)
 	defaultHandler := handlers.NewDefaultHandler()

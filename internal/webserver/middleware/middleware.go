@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	limiter "github.com/psilva1982/rate_limiter_challenge/internal/limiter"
+	"github.com/psilva1982/rate_limiter_challenge/internal/infra/redis"
 )
 
-func RateLimiterMiddleware(rl *limiter.RateLimiter) func(http.Handler) http.Handler {
+func RateLimiterMiddleware(rl *redis.RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := strings.Split(r.RemoteAddr, ":")[0]
