@@ -1,76 +1,108 @@
 package database
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/psilva1982/rate_limiter_challenge/internal/limiter"
 	"gorm.io/gorm"
 )
 
 type MySQLRateLimiter struct {
-	db             *gorm.DB
-	ipRateLimit    int
-	tokenRateLimit int
-	blockDuration  time.Duration
+	DB            *gorm.DB
+	IpRate        int
+	TokenRate     int
+	BlockDuration time.Duration
 }
 
-type RateLimiterEntry struct {
-	ID        uint `gorm:"primaryKey"`
-	Key       string
-	Count     int64
-	ExpiresAt time.Time
+type RateLimit struct {
+	ID         uint `gorm:"primaryKey"`
+	Identifier string
+	Count      int
+	ExpiresAt  time.Time
 }
 
-type TokenRateLimiterEntry struct {
-	ID        uint `gorm:"primaryKey"`
-	Token     string
-	Count     int64
-	ExpiresAt time.Time
+type BlockList struct {
+	ID           uint `gorm:"primaryKey"`
+	Identifier   string
+	BlockedUntil time.Time
 }
 
-func NewMySQLRateLimiter(db *gorm.DB, ipRateLimit, tokenRateLimit int, blockDuration time.Duration) *MySQLRateLimiter {
+func NewMySQLRateLimiter(db *gorm.DB) *MySQLRateLimiter {
+
+	ipRate, tokenRate, blockDuration := limiter.GetLimiterConfig()
+
 	return &MySQLRateLimiter{
-		db:             db,
-		ipRateLimit:    ipRateLimit,
-		tokenRateLimit: tokenRateLimit,
-		blockDuration:  blockDuration,
+		DB:            db,
+		IpRate:        ipRate,
+		TokenRate:     tokenRate,
+		BlockDuration: blockDuration,
 	}
 }
 
-func (rl *MySQLRateLimiter) AllowRequest(ip, token string) (bool, error) {
-	ipKey := fmt.Sprintf("ip:%s", ip)
-	tokenKey := fmt.Sprintf("token:%s", token)
-
-	var ipEntry RateLimiterEntry
-	result := rl.db.Where("key = ?", ipKey).FirstOrCreate(&ipEntry, RateLimiterEntry{Key: ipKey})
-	if result.Error != nil {
+func (r *MySQLRateLimiter) AllowRequest(identifier string, limit int) (bool, error) {
+	var rateLimit RateLimit
+	result := r.DB.Where("identifier = ?", identifier).First(&rateLimit)
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return false, result.Error
 	}
 
-	var tokenEntry TokenRateLimiterEntry
-	result = rl.db.Where("token = ?", tokenKey).FirstOrCreate(&tokenEntry, TokenRateLimiterEntry{Token: tokenKey})
-	if result.Error != nil {
-		return false, result.Error
-	}
-
-	if ipEntry.Count >= int64(rl.ipRateLimit) || tokenEntry.Count >= int64(rl.tokenRateLimit) {
-		// Block IP or token
-		if ipEntry.Count >= int64(rl.ipRateLimit) {
-			ipEntry.ExpiresAt = time.Now().Add(rl.blockDuration)
-			rl.db.Save(&ipEntry)
+	now := time.Now()
+	if result.RowsAffected == 0 {
+		rateLimit = RateLimit{
+			Identifier: identifier,
+			Count:      1,
+			ExpiresAt:  now.Add(time.Second),
 		}
-		if tokenEntry.Count >= int64(rl.tokenRateLimit) {
-			tokenEntry.ExpiresAt = time.Now().Add(rl.blockDuration)
-			rl.db.Save(&tokenEntry)
+		result = r.DB.Create(&rateLimit)
+		if result.Error != nil {
+			return false, result.Error
 		}
-		return false, nil
+	} else if now.After(rateLimit.ExpiresAt) {
+		rateLimit.Count = 1
+		rateLimit.ExpiresAt = now.Add(time.Second)
+		result = r.DB.Save(&rateLimit)
+		if result.Error != nil {
+			return false, result.Error
+		}
+	} else {
+		rateLimit.Count++
+		if rateLimit.Count > limit {
+			return false, nil
+		}
+		result = r.DB.Save(&rateLimit)
+		if result.Error != nil {
+			return false, result.Error
+		}
 	}
-
-	ipEntry.Count++
-	tokenEntry.Count++
-
-	rl.db.Save(&ipEntry)
-	rl.db.Save(&tokenEntry)
 
 	return true, nil
+}
+
+func (r *MySQLRateLimiter) Block(identifier string) error {
+	block := BlockList{
+		Identifier:   identifier,
+		BlockedUntil: time.Now().Add(r.BlockDuration),
+	}
+	result := r.DB.Create(&block)
+	return result.Error
+}
+
+func (r *MySQLRateLimiter) IsBlocked(identifier string) (bool, error) {
+	var block BlockList
+	result := r.DB.Where("identifier = ?", identifier).First(&block)
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		return false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return false, nil
+	}
+	return time.Now().Before(block.BlockedUntil), nil
+}
+
+func (r *MySQLRateLimiter) GetIpRate() int {
+	return r.IpRate
+}
+
+func (r *MySQLRateLimiter) GetTokenRate() int {
+	return r.TokenRate
 }

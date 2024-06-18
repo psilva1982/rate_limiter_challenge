@@ -42,7 +42,6 @@ func main() {
 	// Startup Redis
 	rateLimiter := redis.NewRateLimiter()
 
-	//
 	userService := services.NewUserService(db)
 	userHandler := handlers.NewUserHandler(userService)
 	defaultHandler := handlers.NewDefaultHandler()
