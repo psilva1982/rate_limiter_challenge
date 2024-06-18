@@ -39,8 +39,11 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	// Startup Redis
+	// Redis RateLimiter
 	rateLimiter := redis.NewRateLimiter()
+
+	// Mysql RateLimiter
+	//rateLimiter := database.NewMySQLRateLimiter(db)
 
 	userService := services.NewUserService(db)
 	userHandler := handlers.NewUserHandler(userService)
