@@ -1,67 +1,31 @@
 package limiter
 
 import (
-	"fmt"
+	"log"
+	"os"
+	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-	"golang.org/x/net/context"
+	"github.com/joho/godotenv"
 )
 
-type RateLimiter struct {
-	client        *redis.Client
-	IpRate        int
-	TokenRate     int
-	BlockDuration time.Duration
+type IRateLimiter interface {
+	IsBlocked(identifier string) (bool, error)
+	Block(identifier string) error
+	AllowRequest(identifier string, limit int) (bool, error)
+	GetIpRate() int
+	GetTokenRate() int
 }
 
-func NewRateLimiter(client *redis.Client, ipRate, tokenRate int, blockDuration time.Duration) *RateLimiter {
-	return &RateLimiter{
-		client:        client,
-		IpRate:        ipRate,
-		TokenRate:     tokenRate,
-		BlockDuration: blockDuration,
-	}
-}
-
-func (r *RateLimiter) AllowRequest(identifier string, limit int) (bool, error) {
-	ctx := context.Background()
-	key := fmt.Sprintf("rate_limiter:%s", identifier)
-
-	// Increment the counter
-	count, err := r.client.Incr(ctx, key).Result()
+func GetLimiterConfig() (int, int, time.Duration) {
+	err := godotenv.Load()
 	if err != nil {
-		return false, err
+		log.Fatal("Error loading .env file")
 	}
 
-	// If it is the first request, set the counter expiration
-	if count == 1 {
-		r.client.Expire(ctx, key, time.Second)
-	}
+	ipRate, _ := strconv.Atoi(os.Getenv("IP_RATE_LIMIT"))
+	tokenRate, _ := strconv.Atoi(os.Getenv("TOKEN_RATE_LIMIT"))
+	blockDuration, _ := strconv.Atoi(os.Getenv("BLOCK_DURATION"))
 
-	// Check if the limit has been exceeded
-	if count > int64(limit) {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (r *RateLimiter) Block(identifier string) error {
-	ctx := context.Background()
-	key := fmt.Sprintf("block:%s", identifier)
-	return r.client.Set(ctx, key, "blocked", r.BlockDuration).Err()
-}
-
-func (r *RateLimiter) IsBlocked(identifier string) (bool, error) {
-	ctx := context.Background()
-	key := fmt.Sprintf("block:%s", identifier)
-	result, err := r.client.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return result == "blocked", nil
+	return ipRate, tokenRate, time.Duration(blockDuration) * time.Second
 }
