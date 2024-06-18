@@ -25,9 +25,8 @@ type Response struct {
 
 func TestIPRateLimiter(t *testing.T) {
 
-	client := redis.InitRedis()
-	ipRate, tokenRate, blockDur := redis.GetLimiterConfig()
-	rateLimiter := limiter.NewRateLimiter(client, ipRate, tokenRate, blockDur)
+	ipRate, _, blockDur := limiter.GetLimiterConfig()
+	rateLimiter := redis.NewRateLimiter()
 	defaultHandler := handlers.NewDefaultHandler()
 
 	r := chi.NewRouter()
@@ -80,9 +79,8 @@ func TestTokenRateLimiter(t *testing.T) {
 	userHandler := handlers.NewUserHandler(userService)
 	defaultHandler := handlers.NewDefaultHandler()
 
-	client := redis.InitRedis()
-	ipRate, tokenRate, blockDur := redis.GetLimiterConfig()
-	rateLimiter := limiter.NewRateLimiter(client, ipRate, tokenRate, blockDur)
+	_, tokenRate, blockDur := limiter.GetLimiterConfig()
+	rateLimiter := redis.NewRateLimiter()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

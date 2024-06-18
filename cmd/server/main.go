@@ -40,8 +40,7 @@ func main() {
 	}
 
 	// Startup Redis
-	clientRedis := redis.InitRedis()
-	rateLimiter := redis.NewRateLimiter(clientRedis)
+	rateLimiter := redis.NewRateLimiter()
 
 	//
 	userService := services.NewUserService(db)

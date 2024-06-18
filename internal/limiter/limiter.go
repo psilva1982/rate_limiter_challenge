@@ -6,24 +6,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
 )
 
-type RateLimiterClient interface {
-	~*redis.Client | ~*redis.Client
-}
-
-type ChallangeLimiter interface {
-	NewRateLimiter(client *redis.Client) *RateLimiter
+type IRateLimiter interface {
+	IsBlocked(identifier string) (bool, error)
+	Block(identifier string) error
 	AllowRequest(identifier string, limit int) (bool, error)
-}
-
-type RateLimiter struct {
-	client        *redis.Client
-	IpRate        int
-	TokenRate     int
-	BlockDuration time.Duration
+	GetIpRate() int
+	GetTokenRate() int
 }
 
 func GetLimiterConfig() (int, int, time.Duration) {

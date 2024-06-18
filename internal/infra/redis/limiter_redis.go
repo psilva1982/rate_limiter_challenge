@@ -30,30 +30,38 @@ func InitRedis() *redis.Client {
 	})
 }
 
-func NewRateLimiter(client *redis.Client) *limiter.RateLimiter {
+type RedisRateLimiter struct {
+	Client        *redis.Client
+	IpRate        int
+	TokenRate     int
+	BlockDuration time.Duration
+}
+
+func NewRateLimiter() *RedisRateLimiter {
+	client := InitRedis()
 	ipRate, tokenRate, blockDuration := limiter.GetLimiterConfig()
 
-	return &limiter.RateLimiter{
-		client:        client,
+	return &RedisRateLimiter{
+		Client:        client,
 		IpRate:        ipRate,
 		TokenRate:     tokenRate,
 		BlockDuration: blockDuration,
 	}
 }
 
-func (r *limiter.RateLimiter) AllowRequest(identifier string, limit int) (bool, error) {
+func (r *RedisRateLimiter) AllowRequest(identifier string, limit int) (bool, error) {
 	ctx := context.Background()
 	key := fmt.Sprintf("rate_limiter:%s", identifier)
 
 	// Increment the counter
-	count, err := r.client.Incr(ctx, key).Result()
+	count, err := r.Client.Incr(ctx, key).Result()
 	if err != nil {
 		return false, err
 	}
 
 	// If it is the first request, set the counter expiration
 	if count == 1 {
-		r.client.Expire(ctx, key, time.Second)
+		r.Client.Expire(ctx, key, time.Second)
 	}
 
 	// Check if the limit has been exceeded
@@ -64,16 +72,16 @@ func (r *limiter.RateLimiter) AllowRequest(identifier string, limit int) (bool, 
 	return true, nil
 }
 
-func (r *limiter.RateLimiter) Block(identifier string) error {
+func (r *RedisRateLimiter) Block(identifier string) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("block:%s", identifier)
-	return r.client.Set(ctx, key, "blocked", r.BlockDuration).Err()
+	return r.Client.Set(ctx, key, "blocked", r.BlockDuration).Err()
 }
 
-func (r *limiter.RateLimiter) IsBlocked(identifier string) (bool, error) {
+func (r *RedisRateLimiter) IsBlocked(identifier string) (bool, error) {
 	ctx := context.Background()
 	key := fmt.Sprintf("block:%s", identifier)
-	result, err := r.client.Get(ctx, key).Result()
+	result, err := r.Client.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return false, nil
 	}
@@ -81,4 +89,12 @@ func (r *limiter.RateLimiter) IsBlocked(identifier string) (bool, error) {
 		return false, err
 	}
 	return result == "blocked", nil
+}
+
+func (r *RedisRateLimiter) GetIpRate() int {
+	return r.IpRate
+}
+
+func (r *RedisRateLimiter) GetTokenRate() int {
+	return r.TokenRate
 }
